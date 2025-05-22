@@ -4,6 +4,10 @@ use std::env;
 use std::process;
 use std::net::{Ipv4Addr, IpAddr};
 use crate::rule_parser::SnortRule;
+// use http::{Request, Response};
+use ureq;
+use hex;
+use serde_json::json;
 
 pub fn get_traffic(rule_list: &[SnortRule]) {
     // Get the network interface as a command-line argument
@@ -49,12 +53,51 @@ pub fn get_traffic(rule_list: &[SnortRule]) {
                 let data = packet.data;
                 if let Some((src_ip, dst_ip, src_port, dst_port)) = parse_packet_headers(data) {
                     for rule in rule_list {
-                        if rule.src_ip == src_ip.to_string() || rule.src_ip == "any" && rule.src_port == src_port.to_string() || rule.dst_ip == "any" && rule.dst_ip == src_port.to_string() {
-                            println!("Source IP: {}, Source Port: {}", src_ip, src_port);
-                            println!("Destination IP: {}, Destination Port: {}", dst_ip, dst_port);
-                            print_packet_data(data);
+                        let src_ip_match = rule.src_ip == src_ip.to_string() || rule.src_ip == "any";
+                        let src_port_match = rule.src_port == src_port.to_string() || rule.src_port == "any";
+                        let dst_ip_match = rule.dst_ip == dst_ip.to_string() || rule.dst_ip == "any";
+                        let dst_port_match = rule.dst_port == dst_port.to_string() || rule.dst_port == "any";
 
+                        let content_match = if let Some(ref content) = rule.content {
+                            if !content.is_empty() {
+                                let content_bytes = content.as_bytes();
+                                data.windows(content_bytes.len()).any(|window| window == content_bytes)
+                            } else {
+                                true
+                            }
+                        } else {
+                            true
+                        };
+                    
+                
+                    if src_ip_match && src_port_match && dst_ip_match && dst_port_match && content_match {
+                        println!("Source IP: {}, Source Port: {}", src_ip, src_port);
+                        println!("Destination IP: {}, Destination Port: {}", dst_ip, dst_port);
+                        if let Some(ref msg) = rule.msg {
+                            println!("Rule matched! Message: {}", msg);
                         }
+                        print_packet_data(data);
+                        let url = "urlhere";
+                        let data_hex = hex::encode(data);
+                        let payload = json!({
+                            "src_ip": src_ip.to_string(),
+                            "src_port": src_port,
+                            "dst_ip": dst_ip.to_string(),
+                            "dst_port": dst_port,
+                            "msg": rule.msg.clone().unwrap_or_default(),
+                            "packet_data": data_hex
+                        });
+
+                        let resp = ureq::post(url)
+                        .set("Content-Type", "application/json")
+                        .send_string(&payload.to_string());
+                        
+                        if let Err(e) = resp {
+                            eprintln!("Failed to send webhook: {}", e);
+                        }
+                        
+                    }
+
                     }
                   
                 }

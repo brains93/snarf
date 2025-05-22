@@ -13,4 +13,8 @@ Now have a semi working parser. so far it is very basic and will parse rules to 
 
 Need to work on tieing it together to filter packets now based on the rules. 
 
-NOTE Will also add in file parseing for rules so they can be stored in a file rather than hard coded 
+DONE: Will also add in file parseing for rules so they can be stored in a file rather than hard coded 
+
+TODO: 
+* refine rule parseing so prints tag if they were alerts/drops etc. 
+* add alert severity 
